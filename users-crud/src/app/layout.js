@@ -10,8 +10,8 @@ import Footer from "@/components/Footer";
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="h-100">
+      <body className="d-flex flex-column min-vh-100">
         <Provider store={store}>
           <PersistGate loading={null} persistor={persistor}>
             <Header />
