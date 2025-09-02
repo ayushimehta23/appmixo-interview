@@ -9,22 +9,25 @@ export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
 });
 
 export const fetchUserById = createAsyncThunk(
-    "users/fetchUserById",
-    async (id) => {
-      const res = await axios.get(`${API_URL}/${id}`);
-      return res.data;
-    }
-  );
+  "users/fetchUserById",
+  async (id) => {
+    const res = await axios.get(`${API_URL}/${id}`);
+    return res.data;
+  }
+);
 
 export const createUser = createAsyncThunk("users/createUser", async (user) => {
   const res = await axios.post(API_URL, user);
   return res.data;
 });
 
-export const updateUser = createAsyncThunk("users/updateUser", async (user) => {
-  const res = await axios.put(`${API_URL}/${user.id}`, user);
-  return res.data;
-});
+export const updateUser = createAsyncThunk(
+  "users/updateUser",
+  async ({ id, changes }) => {
+    const res = await axios.patch(`${API_URL}/${id}`, changes);
+    return { id, changes: res.data };
+  }
+);
 
 export const deleteUser = createAsyncThunk("users/deleteUser", async (id) => {
   await axios.delete(`${API_URL}/${id}`);
@@ -77,11 +80,13 @@ const userSlice = createSlice({
       })
 
       .addCase(updateUser.fulfilled, (state, action) => {
-        const index = state.data.findIndex(
-          (u) => String(u.id) === String(action.payload.id)
-        );
+        const { id, changes } = action.payload;
+        const index = state.data.findIndex((u) => String(u.id) === String(id));
         if (index !== -1) {
-          state.data[index] = action.payload;
+          state.data[index] = {
+            ...state.data[index],
+            ...changes,
+          };
         }
       })
 

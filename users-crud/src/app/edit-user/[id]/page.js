@@ -44,12 +44,14 @@ export default function EditUserPage() {
   const handleSubmit = async (values) => {
     const updatedUser = {
       id,
-      name: values.name,
-      email: values.email,
-      company: { name: values.company },
-      address: { city: values.city },
+      changes: {
+        name: values.name,
+        email: values.email,
+        company: { name: values.company },
+        address: { city: values.city },
+      },
     };
-
+  
     await dispatch(updateUser(updatedUser));
     router.push("/");
   };

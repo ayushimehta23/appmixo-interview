@@ -1,6 +1,6 @@
 "use client";
 
-import { deleteUser, fetchUsers } from "@/store/userSlice";
+import { deleteUser, fetchUsers, updateUser } from "@/store/userSlice";
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
@@ -22,10 +22,13 @@ export default function Dashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const [selectedUsers, setSelectedUsers] = useState([]); // ✅ track multiple selections
+  const [selectedUsers, setSelectedUsers] = useState([]);
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
 
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" });
+
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "" });
 
   useEffect(() => {
     if (users.length === 0) {
@@ -136,6 +139,27 @@ export default function Dashboard() {
     } else {
       setSelectedUsers(currentUsers.map((u) => u.id));
     }
+  };
+
+  const startEditing = (user) => {
+    setEditingUser(user.id);
+    setEditForm({ name: user.name, email: user.email });
+  };
+
+  const cancelEditing = () => {
+    setEditingUser(null);
+    setEditForm({ name: "", email: "" });
+  };
+
+  const saveEdit = async (id) => {
+    await dispatch(
+      updateUser({
+        id,
+        changes: { name: editForm.name, email: editForm.email },
+        replace: false,
+      })
+    );
+    cancelEditing();
   };
 
   if (loading) {
@@ -267,54 +291,75 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {currentUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(user.id)}
-                        onChange={() => toggleSelectUser(user.id)}
-                      />
-                    </td>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.company?.name}</td>
-                    <td>{user.address?.city || "-"}</td>
-                    <td className="d-flex gap-2">
-                      <Link
-                        href={`/users/${user.id}`}
-                        className="btn btn-sm btn-info"
-                        title="View Details"
-                      >
-                        👁 View
-                      </Link>
-                      <Link
+  {currentUsers.map((user) => (
+    <tr key={user.id}>
+      <td>
+        <input
+          type="checkbox"
+          checked={selectedUsers.includes(user.id)}
+          onChange={() => toggleSelectUser(user.id)}
+        />
+      </td>
+      <td>{user.id}</td>
+
+      <td
+        onDoubleClick={() => startEditing(user)}
+        style={{ cursor: "pointer" }}
+      >
+        {editingUser === user.id ? (
+          <input
+            type="text"
+            autoFocus
+            value={editForm.name}
+            onChange={(e) =>
+              setEditForm({ ...editForm, name: e.target.value })
+            }
+            onBlur={() => saveEdit(user.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveEdit(user.id);
+              if (e.key === "Escape") cancelEditing();
+            }}
+          />
+        ) : (
+          user.name
+        )}
+      </td>
+
+      <td>{user.email}</td>
+
+      <td>{user.company?.name}</td>
+      <td>{user.address?.city || "-"}</td>
+      <td className="d-flex gap-2">
+        <Link href={`/users/${user.id}`} className="btn btn-sm btn-info">
+          👁 View
+        </Link>
+        <Link
                         href={`/edit-user/${user.id}`}
                         className="btn btn-sm btn-warning"
                       >
                         ✏️ Edit
                       </Link>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDeleteModal(true);
-                        }}
-                      >
-                        🗑 Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {currentUsers.length === 0 && (
-                  <tr>
-                    <td colSpan="7" className="text-center">
-                      No users found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+        <button
+          className="btn btn-sm btn-danger"
+          onClick={() => {
+            setSelectedUser(user);
+            setShowDeleteModal(true);
+          }}
+        >
+          🗑 Delete
+        </button>
+      </td>
+    </tr>
+  ))}
+
+  {currentUsers.length === 0 && (
+    <tr>
+      <td colSpan="7" className="text-center">
+        No users found
+      </td>
+    </tr>
+  )}
+</tbody>
             </table>
 
             {totalPages > 1 && (
