@@ -22,6 +22,11 @@ export default function Dashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  const [selectedUsers, setSelectedUsers] = useState([]); // ✅ track multiple selections
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+
+  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" });
+
   useEffect(() => {
     if (users.length === 0) {
       dispatch(fetchUsers());
@@ -51,7 +56,7 @@ export default function Dashboard() {
   const cities = [...new Set(users.map((u) => u.address?.city).filter(Boolean))];
   const companies = [...new Set(users.map((u) => u.company?.name).filter(Boolean))];
 
-  const filteredUsers = users.filter((user) => {
+  let filteredUsers = users.filter((user) => {
     if (cityFilter && user.address?.city !== cityFilter) return false;
     if (companyFilter && user.company?.name !== companyFilter) return false;
 
@@ -65,9 +70,49 @@ export default function Dashboard() {
         company.includes(internalSearch)
       );
     }
-
     return true;
   });
+
+  if (sortConfig.key) {
+    filteredUsers = [...filteredUsers].sort((a, b) => {
+      let aValue, bValue;
+      switch (sortConfig.key) {
+        case "id":
+          aValue = a.id;
+          bValue = b.id;
+          break;
+        case "name":
+          aValue = a.name?.toLowerCase();
+          bValue = b.name?.toLowerCase();
+          break;
+        case "email":
+          aValue = a.email?.toLowerCase();
+          bValue = b.email?.toLowerCase();
+          break;
+        case "company":
+          aValue = a.company?.name?.toLowerCase();
+          bValue = b.company?.name?.toLowerCase();
+          break;
+        case "city":
+          aValue = a.address?.city?.toLowerCase();
+          bValue = b.address?.city?.toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   const totalItems = filteredUsers.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -78,6 +123,20 @@ export default function Dashboard() {
   useEffect(() => {
     setCurrentPage(1);
   }, [cityFilter, companyFilter, internalSearch]);
+
+  const toggleSelectUser = (id) => {
+    setSelectedUsers((prev) =>
+      prev.includes(id) ? prev.filter((uid) => uid !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUsers.length === currentUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(currentUsers.map((u) => u.id));
+    }
+  };
 
   if (loading) {
     return <Loader fullscreen text="Fetching users..." />;
@@ -98,6 +157,14 @@ export default function Dashboard() {
         <Link href="/add-user" className="btn btn-success">
           ➕ Add New User
         </Link>
+        {selectedUsers.length > 0 && (
+          <button
+            className="btn btn-danger"
+            onClick={() => setShowBatchDeleteModal(true)}
+          >
+            🗑 Delete Selected ({selectedUsers.length})
+          </button>
+        )}
       </div>
 
       <div className="row">
@@ -174,17 +241,41 @@ export default function Dashboard() {
             <table className="table table-bordered mt-2">
               <thead className="table-light">
                 <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Company</th>
-                  <th>City</th>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
+                    ID {sortConfig.key === "id" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => requestSort("name")} style={{ cursor: "pointer" }}>
+                    Name {sortConfig.key === "name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => requestSort("email")} style={{ cursor: "pointer" }}>
+                    Email {sortConfig.key === "email" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => requestSort("company")} style={{ cursor: "pointer" }}>
+                    Company {sortConfig.key === "company" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => requestSort("city")} style={{ cursor: "pointer" }}>
+                    City {sortConfig.key === "city" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                  </th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {currentUsers.map((user) => (
                   <tr key={user.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => toggleSelectUser(user.id)}
+                      />
+                    </td>
                     <td>{user.id}</td>
                     <td>{user.name}</td>
                     <td>{user.email}</td>
@@ -218,7 +309,7 @@ export default function Dashboard() {
                 ))}
                 {currentUsers.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center">
+                    <td colSpan="7" className="text-center">
                       No users found
                     </td>
                   </tr>
@@ -253,9 +344,7 @@ export default function Dashboard() {
                   ))}
 
                   <li
-                    className={`page-item ${
-                      currentPage === totalPages ? "disabled" : ""
-                    }`}
+                    className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
                   >
                     <button
                       className="page-link"
@@ -312,6 +401,58 @@ export default function Dashboard() {
                   }}
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Delete Modal */}
+      {showBatchDeleteModal && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title text-danger">Delete Selected Users</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowBatchDeleteModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p>
+                  Are you sure you want to delete{" "}
+                  <b>{selectedUsers.length}</b> selected user(s)?
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowBatchDeleteModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    if (selectedUsers.length > 0) {
+                      for (const id of selectedUsers) {
+                        await dispatch(deleteUser(id));
+                      }
+                      setSelectedUsers([]);
+                      setShowBatchDeleteModal(false);
+                    }
+                  }}
+                >
+                    Delete All
                 </button>
               </div>
             </div>
