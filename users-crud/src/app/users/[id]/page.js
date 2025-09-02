@@ -16,7 +16,7 @@ export default function ViewEvent() {
 
   useEffect(() => {
       dispatch(fetchUserById());
-  }, [dispatch, users.length]);
+  }, [dispatch]);
 
   useEffect(() => {
     const found = users.find((e) => String(e.id) === String(id));
